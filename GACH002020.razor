@@ -1,0 +1,1929 @@
+@page "/GACH002020"
+@using GaCommon.Commons.Services.DefinitionServices
+@using GaCommon.Commons
+@using GaCommon.Commons.Constants
+@using GaCommon.Daos
+@using GaWeb.Commons
+@using GaCommon.Commons.Caches
+@using GaCommon.Entities
+@using GaWeb.Daos
+@using GaWeb.Models
+@using GaWeb.Commons.Models
+@using GaWeb.Services
+@using GaCommon.Commons.DefinitionObjects.GACH;
+@using System.ComponentModel.DataAnnotations
+@using static GaWeb.Models.GACH002020Model
+@using static GaCommon.Commons.MetaDataModels.MetaDataObjects.MetaDataObjects
+@using GaCommon.Commons.MetaDataModels;
+@using Microsoft.EntityFrameworkCore;
+@using static GaCommon.Commons.CommonJsonUtil
+@using GaCommon.Commons.Services
+@inject GaDbContext dbContext
+@inject IJSRuntime JSRuntime
+@inject CommonSession commonSession
+@inject SessionStorage SessionStorage
+@inject NavigationManager Navigation
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+@inject GACH0020XXRegisterServices gACH0020XXRegisterServices
+
+<style>
+    .editTbody tbody select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url('data:image/svg+xml;utf8, <svg xmlns="http://www.w3.org/2000/svg" width="12" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" /></svg>');
+        background-repeat: no-repeat;
+        background-position: right 5px top 50%;
+    }
+
+    input[type="text"] {
+        height: 35px;
+    }
+
+    tbody.readonly input[type="text"] {
+        pointer-events: none;
+    }
+
+    tbody.readonly select {
+        pointer-events: none;
+    }
+
+
+    .input-validation-error {
+        outline: 1px solid red;
+    }
+
+    input:invalid {
+        outline: 1px solid red;
+    }
+
+</style>
+
+<PageTitle>チェック定義編集</PageTitle>
+@if (isLoad)
+{
+    <LoadPage></LoadPage>
+}
+else
+{
+    <div class="l-content-base">
+        @* <MessageHelper Data="@testFlag"></MessageHelper> *@
+        <div class="title d-flex justify-content-between align-items-center">
+            <h1 class="ttl-h1" style="display: flex;justify-content: space-between;">
+                @if (@gachCommonHeader.Mode == "3")
+                {
+                    <span>チェック定義編集（参照）</span>
+                }
+                else
+                {
+                    <span>チェック定義編集</span>
+                }
+            </h1>
+            <div class="l-flex jc-sb mr_50">
+                <button class="btn_design_cancel __w160" @onclick="GoBackAsync">戻る</button>
+            </div>
+        </div>
+        <div class="l-content-base-inner">
+            <table class="table-type-03">
+                <tr>
+                    <th class="js-data-width" data-width="175" style="width: 175px;">
+                        <label class="control-label" style="font-weight:bold;font-size:larger">チェック概要</label>
+                    </th>
+                    <td>
+                        <input type="text" @bind=@ViewModel.CheckSummary disabled=@IsSansyouMode class="@GetInputCssClass()" />
+                    </td>
+                </tr>
+            </table>
+
+
+            <div style="overflow:auto;margin-top:20px">
+                <h1 style="font-weight:bold;font-size:larger">定義情報詳細</h1>
+                <table border="1" class="table-type-01">
+                    <thead>
+                        <tr>
+                            <th rowspan="3">選択</th>
+                            <th rowspan="3">No</th>
+                            <th colspan="2" style="text-align:center">
+                                チェック対象条件
+                            </th>
+                            @foreach (var item in ViewModel.MultipleCheckConditionItemList)
+                            {
+                                <th width="30px">
+                                    <div class="input-wrap">
+                                        <input type="checkbox" @bind=@item.IsChecked @onclick="()=>CheckBoxOnchange(item)" disabled=@IsSansyouMode />
+                                    </div>
+                                </th>
+                                <th colspan="2">
+                                    項目間チェック条件
+                                </th>
+                            }
+                            <th colspan="2" style="text-align:center">
+                                変換対象
+                            </th>
+                            <th rowspan="3">エラーフラグ</th>
+                        </tr>
+                        <tr>
+                            @foreach (var item in ViewModel.CheckTargetConditionItemList)
+                            {
+                                <th style="max-width:300px;overflow:hidden" colspan="2">
+
+                                    <select disabled=@IsSansyouMode value=@item.ConditionItemID @onchange="@(e=>CheckTargetConditionChanged(e,item))" class="@GetSelectCssClass(1)">
+                                        <option value=0></option>
+                                        @foreach (var dic in CheckConditions)
+                                        {
+                                            <option value="@dic.Key">@dic.Value.Name</option>
+                                        }
+                                    </select>
+                                </th>
+                            }
+
+                            @if (ViewModel.MultipleCheckConditionItemList.Count > 0)
+                            {
+                                int mulIdx = 0;
+                                @foreach (var mitem in ViewModel.MultipleCheckConditionItemList)
+                                {
+                                    <th style="max-width:300px;overflow:hidden" colspan="3">
+                                        <select disabled=@IsSansyouMode value=@mitem.ConditionItemID @onchange="@(e=>MultipleCheckConditionChanged(e,mitem))" class="@GetMulHeaderSelectCssClass(mulIdx)">
+                                            <option value=0></option>
+                                            @foreach (var dic in CheckConditions)
+                                            {
+                                                <option value="@dic.Key">@dic.Value.Name</option>
+                                            }
+                                        </select>
+                                    </th>
+                                    mulIdx++; 
+                                }
+                            }
+
+                            @foreach (var item in ViewModel.ReplaceTargetItemList)
+                            {
+                                <th style="max-width:300px;overflow:hidden" colspan="2">
+                                    <select disabled=@IsSansyouMode @bind=item.ReplaceTargetItemID>
+                                        <option value=0></option>
+                                        @foreach (var dic in CheckConditions)
+                                        {
+                                            <option value="@dic.Key">@dic.Value.Name</option>
+                                        }
+                                    </select>
+                                </th>
+                            }
+                        </tr>
+                        <tr>
+                            <th>比較条件</th>
+                            <th>符号</th>
+                            @foreach (var item in ViewModel.MultipleCheckConditionItemList)
+                            {
+                                <th colspan="2">比較条件</th>
+                                <th>符号</th>
+                            }
+                            <th colspan="2">
+                                変換文字列
+                            </th>
+                        </tr>
+
+                    </thead>
+                    <tbody class="readonly">
+                        @{
+                            int checkDetailRowIndex = 0;
+                        }
+                        @foreach (var item in ViewModel.Details)
+                        {
+                            <tr>
+                                @* 選択 *@
+                                <td>
+                                    <div class="input-wrap">
+                                        <input type="radio" id="@item.DefinitionDetailsNum" name="DefinitionDetail" checked="@item.IsSelected" value="@item.DefinitionDetailsNum" disabled=@IsSansyouMode @onchange=RadioOnchange />
+                                    </div>
+                                </td>
+                                @* No *@
+                                <td style="min-width:80px">
+                                    <label>@item.DefinitionDetailsNum</label>
+                                </td>
+                                @* チェック対象条件 *@
+                                @foreach (var checkTarget in item.CheckTargetConditionItemList)
+                                {
+                                    <td style="min-width:100px">
+                                        <select @bind=checkTarget.ComparisonCondition class="@GetCheckSelectCssClass(checkDetailRowIndex,isCheckConditionNull )">
+                                            <option></option>
+                                            <option value=1>等しい</option>
+                                            <option value=2>以外</option>
+                                        </select>
+                                    </td>
+                                    <td style="min-width:150px">
+                                        <input type="text" @bind=checkTarget.Sign class="@GetCheckSelectCssClass(checkDetailRowIndex,isCheckSignNull )" />
+                                    </td>
+                                }
+
+                                @{
+                                    int checkMulDetailColIndex = 0;
+                                }
+                                @* 項目間チェック条件 *@
+                                @foreach (var checkTarget in item.MultipleCheckConditionItemList)
+                                {
+                                    <td colspan="2" style="min-width:100px">
+                                        <select @bind=checkTarget.ComparisonCondition class="@GetMulDetailSelectCssClass(checkDetailRowIndex,checkMulDetailColIndex,isConditionNull)">
+                                            <option></option>
+                                            <option value=1>等しい</option>
+                                            <option value=2>以外</option>
+                                        </select>
+                                    </td>
+                                    <td style="min-width:150px">
+                                        <input type="text" @bind=checkTarget.Sign class="@GetMulDetailSelectCssClass(checkDetailRowIndex,checkMulDetailColIndex,isSignNull)" />
+                                    </td>
+                                    checkMulDetailColIndex++;
+                                }
+                                @* 変換対象 *@
+                                @foreach (var replaceString in item.ReplaceStringList)
+                                {
+                                    <td colspan="2" style="min-width:150px">
+                                        <input type="text" @bind=replaceString.ReplaceString />
+                                    </td>
+                                }
+                                @* エラーフラグ *@
+                                <td style="min-width:150px">
+                                    <input type="text" @bind=item.ErrFlg />
+                                </td>
+                            </tr>
+                            checkDetailRowIndex++;
+                        }
+                    </tbody>
+                </table>
+
+                <div class="l-area-btn-operation mb_10">
+                    <button class="btn_design_opreation js-btn-move-column" @onclick="SelectRow" disabled=@(IsSansyouMode || IsDisabledRowSelected) hidden="@(IsSansyouMode==true)">行選択</button>
+                    <button class="btn_design_opreation js-btn-move-column" @onclick="addrow" disabled=@(IsSansyouMode || IsDisabledRowAdd) hidden="@(IsSansyouMode==true)">行追加</button>
+                    <button class="btn_design_opreation js-btn-move-column" @onclick="removerow" disabled=@(IsSansyouMode || IsDisabledRowDelete) hidden="@(IsSansyouMode==true)">行削除</button>
+                    <button class="btn_design_opreation js-btn-move-column" @onclick="addcol" disabled=@(IsSansyouMode || IsDisabledColAdd) hidden="@(IsSansyouMode==true)">列追加</button>
+                    <button class="btn_design_opreation js-btn-move-column" @onclick="removecol" disabled=@(IsSansyouMode || IsDisabledColDelete) hidden="@(IsSansyouMode==true)">列削除</button>
+                </div>
+            </div>
+
+            @if (gachCommonHeader.Mode != "3")
+            {
+                <div style="border:solid; margin-top:30px;margin-bottom:30px; padding:20px;overflow:auto">
+                    <h1 style="font-weight:bold;font-size:larger">定義内容入力</h1>
+                    <table class="table-type-01">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">NO</th>
+                                @foreach (var item in ViewModel.CheckTargetConditionItemList)
+                                {
+                                    <th colspan="2">
+                                        チェック対象条件
+                                    </th>
+                                }
+                                @foreach (var item in ViewModel.MultipleCheckConditionItemList)
+                                {
+                                    <th colspan="2">
+                                        項目間チェック条件
+                                    </th>
+                                }
+                                @foreach (var item in ViewModel.ReplaceTargetItemList)
+                                {
+                                    <th colspan="2">
+                                        変換対象
+                                    </th>
+                                }
+                                <th rowspan="2">エラーフラグ</th>
+                            </tr>
+                            <tr>
+                                @foreach (var item in ViewModel.CheckTargetConditionItemList)
+                                {
+                                    <th>比較条件</th>
+                                    <th>符号</th>
+                                }
+                                @foreach (var item in ViewModel.MultipleCheckConditionItemList)
+                                {
+                                    <th>比較条件</th>
+                                    <th>符号</th>
+                                }
+                                @foreach (var item in ViewModel.ReplaceTargetItemList)
+                                {
+                                    <th colspan="2">変換文字列</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody class="editTbody">
+                            @if (EditRow != null)
+                            {
+                                <tr>
+                                    <td style="min-width:80px">
+                                        <label>@EditRow.DefinitionDetailsNum</label>
+                                    </td>
+                                    @foreach (var checkTarget in EditRow.CheckTargetConditionItemList)
+                                    {
+                                        <td style="min-width:100px">
+                                            <select @bind=checkTarget.ComparisonCondition>
+                                                <option></option>
+                                                <option value=1>等しい</option>
+                                                <option value=2>以外</option>
+                                            </select>
+                                        </td>
+                                        <td style="min-width:150px">
+                                            <input type="text" @bind=checkTarget.Sign list="@($"signs1_"+checkTarget.ConditionNum)" />
+                                            <datalist id="@($"signs1_"+checkTarget.ConditionNum)">
+                                                @foreach (var sign in GetCheckTargetSigns(EditRow.CheckTargetConditionItemList.IndexOf(checkTarget)))
+                                                {
+                                                    <option value="@sign">@sign</option>
+                                                }
+                                            </datalist>
+                                        </td>
+                                    }
+                                    @foreach (var multiTarget in EditRow.MultipleCheckConditionItemList)
+                                    {
+                                        <td style="min-width:100px">
+                                            <select @bind=multiTarget.ComparisonCondition>
+                                                <option></option>
+                                                <option value=1>等しい</option>
+                                                <option value=2>以外</option>
+                                            </select>
+                                        </td>
+                                        <td style="min-width:150px">
+                                            <input type="text" @bind=multiTarget.Sign list="@($"signs2_"+multiTarget.ConditionNum)" />
+                                            <datalist id="@($"signs2_"+multiTarget.ConditionNum)">
+                                                @foreach (var sign in GetMultipleCheckTargetSigns(EditRow.MultipleCheckConditionItemList.IndexOf(multiTarget)))
+                                                {
+                                                    <option value="@sign">@sign</option>
+                                                }
+                                            </datalist>
+                                        </td>
+                                    }
+                                    @foreach (var replaceString in EditRow.ReplaceStringList)
+                                    {
+                                        <td colspan="2" style="min-width:150px">
+                                            <input type="text" @bind=replaceString.ReplaceString list="@($"signs3_"+replaceString.ReplaceTargetNum)" />
+                                            <datalist id="@($"signs3_"+replaceString.ReplaceTargetNum)">
+                                                @foreach (var sign in GetReplaceStringSigns(EditRow.ReplaceStringList.IndexOf(replaceString)))
+                                                {
+                                                    <option value="@sign">@sign</option>
+                                                }
+                                            </datalist>
+                                        </td>
+                                    }
+                                    <td style="min-width:150px">
+                                        <input type="text" @bind=EditRow.ErrFlg />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <button class="btn_design_opreation" style="margin-top:10px" disabled=@(IsSansyouMode || IsDisabledConfirm ) hidden="@(IsSansyouMode==true)" @onclick="confirm">確定</button>
+                    <div />
+
+                </div>
+            }
+            <p class="l-area-btn-submit">
+                <button type="button" class="btn_design_submit __w160" @onclick="register" disabled=@(IsSansyouMode || IsDisabledSetting) hidden="@(IsSansyouMode==true)">設定</button>
+            </p>
+
+        </div>
+
+    </div>
+}
+
+@code {
+
+    //赤枠についてフラグ
+    //CEHCK概要フラグ
+    bool checkSummaryhasError;
+    bool isCheckConditionNull;
+    bool isCheckSignNull;
+    int checkDetailErrorRowIndex = -1;
+
+    //項目間チェックについてindex
+    int checkMulDetailColErrorIndex = -1;
+    int checkMulHeaderErrorIndex = -1;
+    int errorIndex = -1;
+    (int, int) checkMulDetailErrorRowColIndex = (-1, -1);
+    bool isConditionNull;
+    bool isSignNull;
+
+    GACHCheckDefinitionInfo info;
+
+    //定義内容入力
+    private GACH20CheckInfoDetail EditRow;
+
+    //選択した列_項目間チェック条件
+    List<GACH20ConditionItem> gACH20ConditionItemSelects = new List<GACH20ConditionItem>();
+
+    //参照モード
+    bool IsDiasbled = false;
+
+    private Dictionary<int, NameSigns> CheckConditions;
+
+    UserInfo userInfo = new UserInfo();
+
+    GACH20CheckInfoDetail detail = new GACH20CheckInfoDetail();
+
+    public GACH002020Model ViewModel = new GACH002020Model();
+
+    //セッション情報
+    string CommomSession;
+
+    GACHCommonSessionModel session;
+
+    [Inject]
+    private NavigationManager? NavManager { get; set; }
+    /// <summary>
+    /// ベースパス
+    /// </summary>
+    public static readonly string BASE_PATH = BasePathCache.GetInstance().BasePath;
+
+    /// </summary>
+    public string ErrorMessage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// エラーメッセージリスト
+    /// </summary>
+    public List<string> ErrorMessageList { get; set; } = new();
+
+    public string CheckType_Temp = "1"; //チェック定義情報.チェック種別が"1"「通常」の場合
+
+    //チェック番号
+    public int CheckNum;
+
+    //定義情報
+    public GACHDefinition gACHDefinition;
+
+    Dictionary<int, string> compareDict = new Dictionary<int, string>()
+    {
+        {0, "なし" },
+        {1, "等しい" },
+        {2,"以外" }
+    };
+
+    //事項
+    public class Matter1
+    {
+        public int? Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    //事項リスト
+    public List<Matter1> matterList = new List<Matter1>();
+
+    private DummyModel dummyModel = new();
+    public class DummyModel { }
+
+    //　チェック対象条件項目ID　
+    public int CheckMatterId { get; set; }
+
+    //　変換対象項目ID
+    public int ReplaceMatterId { get; set; }
+
+    //符号リスト
+    public class SignDisp
+    {
+        public string? ID { get; set; }  //・ ID  : 符号一覧[i].符号
+        public string? DispValue { get; set; } //・ 表示値 :　符号一覧[i].符号＋"."＋符号一覧[i].符号内容
+    }
+    public List<SignDisp> signList = new List<SignDisp>();
+
+    public Dictionary<int, List<SignDisp>> signListDict = new Dictionary<int, List<SignDisp>>();
+
+    //一時保存領域対象
+    GACHCommonSessionModel gACHCommonSessionModel = new GACHCommonSessionModel();
+
+    public GACHCommonHeader gachCommonHeader = new GACHCommonHeader();
+
+    public GetSessionData parameters;
+
+    //定義編集区分が「参照」モード
+    public bool IsSansyouMode { get; set; }
+    bool IsDisabledRowSelected;//行選択
+    bool IsDisabledRowAdd;//行追加
+    bool IsDisabledRowDelete;//行削除
+    bool IsDisabledColAdd;//列追加
+    bool IsDisabledColDelete;//列削除
+    bool IsDisabledConfirm = true;//確認ボタン
+    bool IsDisabledSetting;//設定ボタン
+
+    //初期表示時は先頭行を選択済にするフラグ
+    bool IsFirstItem = true;
+
+    //初期表示時flag, 非活性
+    bool IsInit = true;
+
+    //【確定】活性フラッグ
+    bool IsConfirmDisabled = true;
+
+    bool ItemCheckConditionFlg { get; set; }
+
+    //※GACH業務改修20240425
+    //更新日時
+    public DateTime? gachUpdateTime { get; set; }
+    public int useCheckNum;
+
+    //※GACH業務改修20240425
+    //1-1.セッション情報.定義情報リスト
+    public List<GACHDefinitionInfoList>? defInfoList;
+
+    public List<ItemHeader> itemHeaders { get; set; } = new List<ItemHeader>();
+
+    public List<GACHCheckInfoDetail> dispDetailList { get; set; } = new List<GACHCheckInfoDetail>();
+
+    //調査票メタデータセット
+    public StudyMetaDataset studyMetaDataset = new StudyMetaDataset();
+
+    //事項一覧
+    public IEnumerable<StMatter>? dispMatters { get; set; }
+
+    // LOAD画面フラグ
+    private bool isLoad = true;
+
+    //定義情報詳細_データ
+    // private List<DefinitionDetail> rowlist = new List<DefinitionDetail>
+    // {
+    // };
+    //項目間 ヘッダー
+    public class ItemHeader
+    {
+        public bool ItemSelect { get; set; }
+        public List<SignDisp>? ItemSignList { get; set; }
+    }
+
+    public class NameSigns
+    {
+        public string Name { get; set; }
+        public List<string> Signs { get; set; }
+    }
+
+    //セッションデータモード
+    public class GetSessionData
+    {
+        // 項目間チェック条件表示フラグ
+        public bool ItemCheckConditionFlag { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+    }
+
+
+    protected async override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            CommomSession = await SessionStorage.GetItemGACH("CommonSession");
+            session = CommonJsonUtil.Deserialize<GACHCommonSessionModel>(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(CommomSession))) ?? new();
+            GAMD001510 gAMD001510Util = new GAMD001510(dbContext);
+            userInfo = StorageKeyUtil.UserInfoFromStorage(await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", StorageKeyUtil.INFO_USER));
+            CheckConditions = new Dictionary<int, NameSigns>();
+            if (CommomSession == null)
+            {
+                throw new Exception("CommonSession is null.");
+            }
+            gACHCommonSessionModel = session; //一時保存領域対象
+            gachCommonHeader = session.GACHCommonHeader;
+            //0(新規)、1(コピーして追加)、2(編集)、3(参照)
+            IsSansyouMode = gachCommonHeader.Mode == "3"; //定義編集区分が「参照」,「参照」の場合は非活性
+            IsConfirmDisabled = IsSansyouMode || IsInit;
+
+            //※GACH業務改修20240425
+            //1-1.セッション情報.定義情報リスト
+            defInfoList = session.DefinitionInfoList;
+            GACHDefinitionInfoList refDefinition = null;
+            //チェック対象条件列
+            ViewModel.CheckTargetConditionItemList = new List<GACH20ConditionItem>();
+
+            //項目間チェック対象条件
+            ViewModel.MultipleCheckConditionItemList = new List<GACH20ConditionItem>();
+
+            //変換対象列
+            ViewModel.ReplaceTargetItemList = new List<GACH20ReplaceTargetItem>();
+
+            //定義情報詳細初期化
+            ViewModel.Details = new List<GACH20CheckInfoDetail>();
+
+            GACHDefinition convertedCheckDefinition = new GACHDefinition();
+
+            if (gachCommonHeader.definitionId != 0)
+            {
+                var query = dbContext.TCheckDefinitions.Where(x => x.DefinitionId == session.GACHCommonHeader.definitionId).ToList();
+
+                if (query != null && query.Count > 0)
+                {
+                    //デシリアライズ処理
+                    convertedCheckDefinition = CommonJsonUtil.Deserialize<GACHDefinition>(query[0].CheckDefinitionInfo);
+                    convertedCheckDefinition.StudyMetaID = session.GACHCommonHeader.StudyMetaID;// definitionId存在の場合、メタID変更の可能性がある
+
+                    //※GACH業務改修20240425
+                    //※変数に更新日時を退避する
+                    gachUpdateTime = query[0].UpdDatetime;
+
+                }
+            }
+            else  //GACH業務改修20240425 新規の場合 gachCommonHeader.definitionId == 0
+            {
+                convertedCheckDefinition = new GACHDefinition();
+                convertedCheckDefinition.DefinitionName = session.GACHCommonHeader.definitionName;
+                convertedCheckDefinition.DefinitionId = 0;
+                convertedCheckDefinition.StudyMetaID = session.GACHCommonHeader.StudyMetaID;
+                convertedCheckDefinition.Division1 = session.GACHCommonHeader.Division1;
+                convertedCheckDefinition.Division2 = session.GACHCommonHeader.Division2;
+                convertedCheckDefinition.Division3 = session.GACHCommonHeader.Division3;
+                convertedCheckDefinition.Division4 = session.GACHCommonHeader.Division4;
+                convertedCheckDefinition.Division5 = session.GACHCommonHeader.Division5;
+            }
+
+            //GACH業務改修20240425 コピーして追加
+            if (gachCommonHeader.CopyCheckNum != 0)
+            {
+                CheckNum = gachCommonHeader.CopyCheckNum;
+            }
+            else
+            {
+                CheckNum = gachCommonHeader.CheckNum;
+            }
+
+            gACHDefinition = convertedCheckDefinition;
+            refDefinition = defInfoList.FirstOrDefault(e => e.CheckNum == CheckNum);
+
+            //1.事項リスト画面設定
+            //調査票メタデータセット
+            //GACH業務改修20240425
+            //studyMetaDataset = gACHCommonSessionModel.ChousaMetaDataset;
+            studyMetaDataset = gAMD001510Util.GetStudyMetaDataset(gACHDefinition.StudyMetaID, userInfo);
+
+            //事項一覧　//調査票メタデータセットcheck必要
+            dispMatters = studyMetaDataset.Matters;
+
+            if (studyMetaDataset != null)
+            {
+                foreach (var item in studyMetaDataset.Matters)
+                {
+                    NameSigns nameSign = new NameSigns();
+                    nameSign.Name = item.Name;
+                    nameSign.Signs = new List<string>();
+                    if (item.CodeList != null)
+                    {
+                        foreach (var sign in item.CodeList)
+                        {
+                            nameSign.Signs.Add(sign.Value);
+                        }
+                    }
+                    CheckConditions.Add(item.ID.Value, nameSign);
+                }
+            }
+
+            //1-1.事項リスト作成
+            //セッション情報.チェックツールセッション情報.調査票メタデータセット.事項一覧.事項ID, 事項名
+            if (dispMatters != null)
+            {
+                foreach (StMatter m in dispMatters)
+                {
+                    matterList.Add(new() { Id = m.ID, Name = m.Name });
+                }
+                //TODO 設計書と違う
+                CheckMatterId = matterList.Last().Id.GetValueOrDefault();
+            }
+
+            //2-1. チェック定義情報取得
+
+            //セッション情報.チェックツールセッション情報.定義情報.チェック定義情報リストがNULLの場合
+            if (gACHDefinition.CheckDefinitionInfoList == null)
+            {
+                //3に進む GACH002020_チェック定義編集画面を表示する
+                return;
+            }
+
+            ViewModel.CheckSummary = refDefinition.CheckSummary;
+
+            //該当行データのチェック種別が1，2の場合
+            if (session.GACHCommonHeader.definitionId != 0 && refDefinition.CheckType == 1)
+            {
+                info = convertedCheckDefinition.CheckDefinitionInfoList.FirstOrDefault(t => t.CheckNum == CheckNum);
+            }
+
+            if (info == null)
+            {
+                //TODO 命名
+                info = new GACHCheckDefinitionInfo();
+                info.CheckNum = refDefinition.CheckNum;
+                info.CheckSummary = refDefinition.CheckSummary;
+
+                ViewModel.CheckTargetConditionItemList.Add(new GACH20ConditionItem()
+                    {
+                        ConditionNum = 1,
+                        ConditionItemID = 1
+                    });
+
+                ViewModel.ReplaceTargetItemList.Add(new GACH20ReplaceTargetItem()
+                    {
+                        ReplaceTargetNum = 1,
+                        ReplaceTargetItemID = 0
+                    });
+            }
+            else
+            {
+                if (info.CheckTargetConditionItemList != null && info.CheckTargetConditionItemList.Count > 0)
+                {
+                    foreach (var item in info.CheckTargetConditionItemList)
+                    {
+                        ViewModel.CheckTargetConditionItemList.Add(new GACH20ConditionItem()
+                            {
+                                PreviousValue = item.ConditionItemID,
+                                ConditionItemID = item.ConditionItemID,
+                                ConditionNum = item.ConditionNum
+                            });
+                    }
+
+                }
+
+                if (info.MultipleCheckConditionItemList != null && info.MultipleCheckConditionItemList.Count > 0)
+                {
+                    foreach (var item in info.MultipleCheckConditionItemList)
+                    {
+                        ViewModel.MultipleCheckConditionItemList.Add(new GACH20ConditionItem()
+                            {
+                                PreviousValue = item.ConditionItemID,
+                                ConditionItemID = item.ConditionItemID,
+                                ConditionNum = item.ConditionNum
+                            });
+                    }
+                }
+
+                if (info.ReplaceTargetItemList == null || info.ReplaceTargetItemList.Count == 0)
+                {
+                    ViewModel.ReplaceTargetItemList.Add(new GACH20ReplaceTargetItem()
+                        {
+                            ReplaceTargetNum = 1,
+                            ReplaceTargetItemID = 0
+                        });
+                }
+                else
+                {
+                    foreach (var item in info.ReplaceTargetItemList)
+                    {
+                        ViewModel.ReplaceTargetItemList.Add(new GACH20ReplaceTargetItem()
+                            {
+                                ReplaceTargetNum = item.ReplaceTargetNum,
+                                ReplaceTargetItemID = item.ReplaceTargetItemID
+                            });
+                    }
+                }
+
+                if (info.CheckInfoDetailList != null && info.CheckInfoDetailList.Count > 0)
+                {
+                    foreach (var item in info.CheckInfoDetailList)
+                    {
+                        List<GACHReplaceString> replaceStringList = new List<GACHReplaceString>();
+                        if (item.ReplaceStringList == null || item.ReplaceStringList.Count == 0)
+                        {
+                            replaceStringList.Add(new GACHReplaceString
+                                {
+                                    ReplaceTargetNum = 1, //detailItem.ReplaceStringList[0].ReplaceTargetNum
+                                    Type = 1,
+                                    ReplaceString = ""
+                                });
+                        }
+                        else
+                        {
+                            replaceStringList = item.ReplaceStringList;
+                        }
+
+                        for (int n = 1; n <= ViewModel.MultipleCheckConditionItemList.Count(); n++)
+                        {
+                            var result = item.ItemCheckTargetConditionList.Select(condition => condition.ConditionNum);
+
+                            if (!result.Contains(n))
+                            {
+                                item.ItemCheckTargetConditionList.Add(new GACHTargetCondition
+                                    {
+                                        ConditionNum = n,
+                                        ComparisonCondition = null,
+                                        Sign = null
+                                    });
+                            }
+                        }
+
+                        item.ItemCheckTargetConditionList = item.ItemCheckTargetConditionList.OrderBy(condition => condition.ConditionNum).ToList();
+
+                        ViewModel.Details.Add(new GACH20CheckInfoDetail()
+                            {
+                                CheckTargetConditionItemList = item.CheckTargetConditionItemList,
+                                DefinitionDetailsNum = item.DefinitionDetailsNum,
+                                ErrFlg = item.ErrFlg,
+                                MultipleCheckConditionItemList = item.ItemCheckTargetConditionList,
+                                ReplaceStringList = replaceStringList
+                            });
+                    }
+                }
+            }
+
+
+            ReOrderIndex();
+            BtnStateChange();
+            isLoad = false;
+            StateHasChanged();
+        }
+    }
+
+    private async void GoBackAsync()
+    {
+        JSRuntime.InvokeVoidAsync("hideMessage"); //エラーメッセージ を消す
+        NavigationManager.NavigateTo($"{BASE_PATH}/GACH002010?IsReload=false");
+    }
+
+
+    //行選択場合の対象データ
+    //DefinitionDetail definitionDetail1 = null;
+    GACHCheckInfoDetail definitionDetail1 = new GACHCheckInfoDetail()
+        {
+            CheckTargetConditionItemList = new List<GACHTargetCondition>() { new GACHTargetCondition() },
+
+            ReplaceStringList = new List<GACHReplaceString>() { new GACHReplaceString() },
+            ItemCheckTargetConditionList = new List<GACHTargetCondition>() { new GACHTargetCondition() }
+
+        };
+
+    //行チェックする関数
+    private void RadioOnchange(ChangeEventArgs args)
+    {
+        foreach (var item in ViewModel.Details)
+        {
+            if (item.DefinitionDetailsNum == Convert.ToInt32(args.Value))
+            {
+                item.IsSelected = true;
+            }
+            else
+            {
+                item.IsSelected = false;
+            }
+        }
+    }
+
+    //行追加
+    private void addrow()
+    {
+        CheckRedFlagInit();
+
+        if (ViewModel.Details == null)
+        {
+            ViewModel.Details = new List<GACH20CheckInfoDetail>();
+        }
+        GACH20CheckInfoDetail gACH20CheckInfoDetail = new GACH20CheckInfoDetail();
+        gACH20CheckInfoDetail.CheckTargetConditionItemList.Add(new GACHTargetCondition());
+        //チェック定義情報.項目間チェック条件項目リストが０件の場合 detail追加しない
+        if (ViewModel.MultipleCheckConditionItemList.Count != 0)
+        {
+            for (var i = 0; i < ViewModel.MultipleCheckConditionItemList.Count; i++)
+            {
+                gACH20CheckInfoDetail.MultipleCheckConditionItemList.Add(new GACHTargetCondition());
+            }
+        }
+        gACH20CheckInfoDetail.ReplaceStringList.Add(new GACHReplaceString());
+        if (ViewModel.Details.Count > 0)
+        {
+            gACH20CheckInfoDetail.DefinitionDetailsNum = ViewModel.Details.Max(t => t.DefinitionDetailsNum) + 1;
+        }
+        else
+        {
+            gACH20CheckInfoDetail.DefinitionDetailsNum = 1;
+        }
+        ViewModel.Details.Add(gACH20CheckInfoDetail);
+
+        ReOrderIndex();
+        BtnStateChange();
+        StateHasChanged();
+    }
+
+    //列追加
+    private void addcol()
+    {
+        CheckRedFlagInit();
+
+        if (ViewModel.MultipleCheckConditionItemList.Count == 0)
+        {
+            ViewModel.MultipleCheckConditionItemList.Add(new GACH20ConditionItem());
+            foreach (var item in ViewModel.Details)
+            {
+                item.MultipleCheckConditionItemList.Add(new GACHTargetCondition());
+            }
+
+        }
+        if (ViewModel.MultipleCheckConditionItemList.Count > 0)
+        {
+            var query = ViewModel.MultipleCheckConditionItemList.Where(x => x.IsChecked == true).ToList();
+            if (query.Count > 0)
+            {
+                for (int i = 0; i < query.Count; i++)
+                {
+                    //ViewModel.MultipleCheckConditionItemList.Add(new GACH20ConditionItem());
+                    ViewModel.MultipleCheckConditionItemList.Insert(ViewModel.MultipleCheckConditionItemList.IndexOf(query[i]) + 1, new GACH20ConditionItem());
+                    foreach (var item in ViewModel.Details)
+                    {
+                        item.MultipleCheckConditionItemList.Insert(ViewModel.MultipleCheckConditionItemList.IndexOf(query[i]) + 1, new GACHTargetCondition());
+                    }
+                }
+
+            }
+        }
+
+        ReOrderIndex();
+        if (EditRow != null)
+        {
+            SelectRow();
+        }
+        BtnStateChange();
+        StateHasChanged();
+    }
+
+    public void ReOrderIndex()
+    {
+        //項目間チェック条件
+        for (int n = 1; n <= ViewModel.MultipleCheckConditionItemList.Count(); n++)
+        {
+            ViewModel.MultipleCheckConditionItemList[n - 1].ConditionNum = n;
+            foreach (var row in ViewModel.Details)
+            {
+                row.MultipleCheckConditionItemList[n - 1].ConditionNum = n;
+            }
+        }
+    }
+
+    //行選択
+    public void SelectRow()
+    {
+        CheckRedFlagInit();
+
+        GACH20CheckInfoDetail detail = ViewModel.Details.FirstOrDefault(t => t.IsSelected);
+        if (detail != null)
+        {
+            EditRow = DeepCopyDetailRow(detail);
+            IsDisabledConfirm = false;
+        }
+    }
+
+    private GACH20CheckInfoDetail DeepCopyDetailRow(GACH20CheckInfoDetail row)
+    {
+        GACH20CheckInfoDetail detail = new GACH20CheckInfoDetail()
+            {
+                DefinitionDetailsNum = row.DefinitionDetailsNum,
+                IsSelected = row.IsSelected,
+                ErrFlg = row.ErrFlg,
+                CheckTargetConditionItemList = new List<GACHTargetCondition>(),
+                MultipleCheckConditionItemList = new List<GACHTargetCondition>(),
+                ReplaceStringList = new List<GACHReplaceString>()
+            };
+
+        foreach (var item in row.CheckTargetConditionItemList)
+        {
+            detail.CheckTargetConditionItemList.Add(new GACHTargetCondition()
+                {
+                    ComparisonCondition = item.ComparisonCondition,
+                    ConditionNum = item.ConditionNum,
+                    Sign = item.Sign
+                });
+        }
+
+        foreach (var item in row.MultipleCheckConditionItemList)
+        {
+            detail.MultipleCheckConditionItemList.Add(new GACHTargetCondition()
+                {
+                    ComparisonCondition = item.ComparisonCondition,
+                    ConditionNum = item.ConditionNum,
+                    Sign = item.Sign
+                });
+        }
+
+        if (row.ReplaceStringList.Count != 0)
+        {
+            foreach (var item in row.ReplaceStringList)
+            {
+                detail.ReplaceStringList.Add(new GACHReplaceString()
+                    {
+                        ReplaceString = item.ReplaceString,
+                        ReplaceTargetNum = item.ReplaceTargetNum,
+                        Type = item.Type
+                    });
+            }
+        }
+        else // REPLACE_STRING_LIST:[] の場合
+        {
+            detail.ReplaceStringList.Add(new GACHReplaceString()
+                {
+                    ReplaceString = "",
+                    ReplaceTargetNum = 1,
+                    Type = 1
+                });
+
+        }
+
+
+        return detail;
+    }
+
+    private List<string> GetCheckTargetSigns(int index)
+    {
+        List<string> signs = new List<string>();
+        int id = ViewModel.CheckTargetConditionItemList[index].ConditionItemID;
+        if (CheckConditions.ContainsKey(id))
+        {
+            signs = CheckConditions[id].Signs;
+        }
+        return signs;
+    }
+    private List<string> GetMultipleCheckTargetSigns(int index)
+    {
+        List<string> signs = new List<string>();
+        int id = ViewModel.MultipleCheckConditionItemList[index].ConditionItemID;
+        if (CheckConditions.ContainsKey(id))
+        {
+            signs = CheckConditions[id].Signs;
+        }
+        return signs;
+    }
+    private List<string> GetReplaceStringSigns(int index)
+    {
+        List<string> signs = new List<string>();
+        if (ViewModel.ReplaceTargetItemList[index].ReplaceTargetItemID != null)
+        {
+            int id = ViewModel.ReplaceTargetItemList[index].ReplaceTargetItemID.Value;
+            if (CheckConditions.ContainsKey(id))
+            {
+                signs = CheckConditions[id].Signs;
+            }
+        }
+        return signs;
+    }
+
+    //選択した行
+    GACHCheckInfoDetail SelectedDefinitionDetail = new GACHCheckInfoDetail();
+    void SelectObject(GACHCheckInfoDetail definitionDetail)
+    {
+        SelectedDefinitionDetail = definitionDetail;
+    }
+
+    //行削除
+    private void removerow()
+    {
+        CheckRedFlagInit();
+        //定義内容入力に削除対象行が表示されていたら、入力された内容をクリアし、「確定」ボタンを非活性とする
+        var SelectedDefinitionDetailsNum = ViewModel.Details
+        .FirstOrDefault(i => i.IsSelected == true)?
+        .DefinitionDetailsNum;
+        if (SelectedDefinitionDetailsNum == EditRow?.DefinitionDetailsNum)
+        {
+            EditRow = null;
+            IsDisabledConfirm = true;
+        }
+
+        if (ViewModel.Details != null && ViewModel.Details.Count > 0)
+        {
+            var query = ViewModel.Details.FirstOrDefault(m => m.IsSelected == true);
+
+            if (query != null)
+            {
+                ViewModel.Details.Remove(query);
+            }
+        }
+        //選択された行を削除し、画面項目.定義情報詳細.Noを再採番する
+        int idx = 0;
+        //for (int i = 0; i < ViewModel.Details.Count; i++)
+        foreach (var item in ViewModel.Details)
+        {
+            idx++;
+            item.DefinitionDetailsNum = idx;
+        }
+        BtnStateChange();
+        StateHasChanged();
+
+    }
+
+    //列削除
+    private void removecol()
+    {
+        CheckRedFlagInit();
+        //項目間チェック条件
+        foreach (var item in gACH20ConditionItemSelects.ToList())
+        {
+            var index = ViewModel.MultipleCheckConditionItemList.IndexOf(item);
+            if (index != -1)
+            {
+                if (ViewModel.MultipleCheckConditionItemList.Count >= 1)
+                {
+                    ViewModel.MultipleCheckConditionItemList.RemoveAt(index);
+                    foreach (var row in ViewModel.Details)
+                    {
+                        row.MultipleCheckConditionItemList.RemoveAt(index);
+                    }
+                    gACH20ConditionItemSelects.Remove(item);
+                }
+            }
+        }
+        ReOrderIndex();
+        if (EditRow != null)
+        {
+            SelectRow();
+        }
+
+        BtnStateChange();
+        StateHasChanged();
+    }
+
+    //確定^[]
+    private void confirm()
+    {
+        CheckRedFlagInit();
+        GACH20CheckInfoDetail detail = ViewModel.Details.FirstOrDefault(t => t.DefinitionDetailsNum == EditRow.DefinitionDetailsNum);
+        if (detail != null && EditRow != null)
+        {
+            // detail.DefinitionDetailsNum = EditRow.DefinitionDetailsNum;
+            detail.CheckTargetConditionItemList = EditRow.CheckTargetConditionItemList.Select(item => new GACHTargetCondition()
+                {
+                    ConditionNum = item.ConditionNum,
+                    ComparisonCondition = item.ComparisonCondition,
+                    Sign = item.Sign
+                }).ToList();
+
+            if (ViewModel.MultipleCheckConditionItemList.Count != 0)
+            {
+                detail.MultipleCheckConditionItemList = EditRow.MultipleCheckConditionItemList.Select(item => new GACHTargetCondition()
+                    {
+                        ConditionNum = item.ConditionNum,
+                        ComparisonCondition = item.ComparisonCondition,
+                        Sign = item.Sign
+                    }).ToList();
+            }
+
+            detail.ReplaceStringList = EditRow.ReplaceStringList.Select(item => new GACHReplaceString()
+                {
+                    ReplaceTargetNum = item.ReplaceTargetNum,
+                    Type = item.Type,
+                    ReplaceString = item.ReplaceString
+                }).ToList();
+            detail.ErrFlg = EditRow.ErrFlg;
+        }
+        BtnStateChange();
+        StateHasChanged();
+    }
+
+    //設定
+    private async void register()
+    {
+
+        //※GACH業務改修20240425
+        //2-1.セッション情報.チェック定義ID通って、DBから更新日時を取得して、変数.更新日時不一致の場合、メッセージを表示して、終了する
+        if (session.GACHCommonHeader.Mode == "2")
+        {
+            dbContext.ChangeTracker.Clear();
+            var query = dbContext.TCheckDefinitions.Where(x => x.DefinitionId == session.GACHCommonHeader.definitionId).ToList();
+            if ((query != null && query.Count > 0) && (session.GACHCommonHeader.definitionId != 0))
+            {
+                DateTime? newUpdateTime = query[0].UpdDatetime;
+                string vSave = gachUpdateTime?.ToString("yyyy/MM/dd HH:mm:ss.ff");
+                string vCur = newUpdateTime?.ToString("yyyy/MM/dd HH:mm:ss.ff");
+                if (vSave != vCur) //DB を変更されてしまった
+                {
+                    SetErrorMessage(GaCommon.Resources.MessageResource.MOECH015);
+                    await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+
+                    return;
+                }
+            }
+        }
+
+        StateHasChanged();
+        //dispCheckDefinitionInfo.CheckSummary = "";
+        //チェック概要が入力されていない場合、画面にエラーメッセージを表示する
+        if (string.IsNullOrEmpty(ViewModel.CheckSummary))
+        {
+            SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "チェック概要"));
+            await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+            checkSummaryhasError = true;
+            StateHasChanged();
+            return;
+        }
+        checkSummaryhasError = false;
+
+        //定義情報詳細が0件、または空行のみの場合、画面にエラーメッセージを表示する。
+        if (ViewModel.Details.Count == 0)
+        {
+            SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "定義情報詳細"));
+            await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+            return;
+        }
+
+        //空行チェック
+        for (int i = 0; i < this.ViewModel.Details.Count; i++)
+        {
+            var isCheckAllNull = this.ViewModel.Details[i].CheckTargetConditionItemList.All(x => (x.ComparisonCondition == null || x.ComparisonCondition == 0) && string.IsNullOrWhiteSpace(x.Sign));
+            var isMulAllNull = this.ViewModel.Details[i].MultipleCheckConditionItemList.All(x => (x.ComparisonCondition == null || x.ComparisonCondition == 0) && string.IsNullOrWhiteSpace(x.Sign));
+            var isReplaceAllNull = this.ViewModel.Details[i].ReplaceStringList.All(x => ( string.IsNullOrWhiteSpace(x.ReplaceString)));
+            if (isCheckAllNull && isMulAllNull  && isReplaceAllNull)
+            {
+                //useGetCheckTargetDetailFirstFunc = false;
+                //checkTargetDetailErrorRowColIndex = (i, 0);
+                checkDetailErrorRowIndex = i;
+                isCheckConditionNull = true;
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "定義情報詳細"));
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+
+        }
+
+        //定義情報詳細.テーブルヘッダー.チェック対象条件項目が選択されていない場合、画面にエラーメッセージを表示する。
+        foreach (var info1 in ViewModel.CheckTargetConditionItemList)
+        {
+            if (info1.ConditionItemID == 0 || (info1.ConditionItemID == 1 && info1.IsChecked == false))
+            {
+                errorIndex = 1;
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "チェック対象条件項目"));
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+        }
+        checkSummaryhasError = false;
+
+        //定義情報詳細.チェック対象条件.比較条件が入力されていない場合、画面にエラーメッセージを表示する。
+        int tmpRowIndex = 0;
+        foreach (var info1 in ViewModel.Details)
+        {
+            if ((info1.CheckTargetConditionItemList[0].ComparisonCondition != 1)
+                && (info1.CheckTargetConditionItemList[0].ComparisonCondition != 2))
+            {
+                checkDetailErrorRowIndex = tmpRowIndex;
+                isCheckConditionNull = true;
+                string msg = $"No.  {info1.DefinitionDetailsNum}のチェック対象条件に比較条件";
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", msg));
+
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+            tmpRowIndex++;
+        }
+
+        //定義情報詳細.チェック対象条件.符号が入力されていない場合、画面にエラーメッセージを表示する。
+        tmpRowIndex = 0;
+        foreach (var info1 in ViewModel.Details)
+        {
+            if (string.IsNullOrEmpty(info1.CheckTargetConditionItemList[0].Sign))
+            {
+                checkDetailErrorRowIndex = tmpRowIndex;
+                isCheckSignNull = true;
+                string msg = $"No.  {info1.DefinitionDetailsNum}のチェック対象条件に符号";
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", msg));
+
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+            tmpRowIndex++;
+        }
+
+
+        checkMulDetailErrorRowColIndex = (-1, -1);
+        //項目間チェック条件 ヘッダーあり明細なしチェック
+        for (int i = 0; i < this.ViewModel.Details.FirstOrDefault()?.MultipleCheckConditionItemList.Count; i++)
+        {
+            var allColNull = ViewModel.Details.Select(x => x.MultipleCheckConditionItemList[i]).All(z => z.ComparisonCondition == null && string.IsNullOrWhiteSpace(z.Sign));
+            //if (ViewModel.MultipleCheckConditionItemList[i] != null && allColNull)
+            if (ViewModel.MultipleCheckConditionItemList[i].ConditionItemID != 0 && allColNull)
+            {
+                useGetMulDetailFirstFunc = true; //該当列cell全部赤枠
+                checkMulDetailColErrorIndex = i;
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "項目間チェック条件項目の明細列番:" + (i + 1)));
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+        }
+
+        checkMulDetailColErrorIndex = -1;
+        //項目間チェック条件 ヘッダーなし明細ありチェック
+        for (int i = 0; i < this.ViewModel.Details.FirstOrDefault()?.MultipleCheckConditionItemList.Count; i++)
+        {
+            var allColNull = ViewModel.Details.Select(x => x.MultipleCheckConditionItemList[i]).All(z => z.ComparisonCondition == null && string.IsNullOrWhiteSpace(z.Sign));
+
+            if (!allColNull && this.ViewModel.MultipleCheckConditionItemList[i].ConditionItemID == 0)
+            {
+                checkMulHeaderErrorIndex = i;
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "項目間チェック条件項目" + (i + 1)));
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                StateHasChanged();
+                return;
+            }
+        }
+
+        checkMulHeaderErrorIndex = -1;
+
+        //i行 j列
+        //入る時はfalse
+        isConditionNull = false;
+        isSignNull = false;
+        for (int i = 0; i < this.ViewModel.Details.Count; i++)
+        {
+            //項目間チェック条件 符号あり比較条件なしチェック
+            for (int j = 0; j < this.ViewModel.Details[i].MultipleCheckConditionItemList.Count; j++)
+            {
+                var item = this.ViewModel.Details[i].MultipleCheckConditionItemList[j];
+                if ((item.ComparisonCondition == null || item.ComparisonCondition == 0) && !string.IsNullOrWhiteSpace(item.Sign))
+                {
+                    useGetMulDetailFirstFunc = false;
+                    checkMulDetailErrorRowColIndex = (i, j);
+                    isConditionNull = true;
+                    //string msg = $"チェック番号 : {gachCommonHeader.CheckNum}の定義詳細番号 : {i + 1}に比較条件";
+                    string msg = $"No.   {i + 1} 項目間チェック条件の列番{j + 1}に比較条件";
+                    SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", msg));
+                    await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                    StateHasChanged();
+                    return;
+                }
+            }
+            //項目間チェック条件 比較条件あり符号なしチェック
+            for (int j = 0; j < this.ViewModel.Details[i].MultipleCheckConditionItemList.Count; j++)
+            {
+                var item = this.ViewModel.Details[i].MultipleCheckConditionItemList[j];
+                if ((item.ComparisonCondition != null && item.ComparisonCondition != 0) && string.IsNullOrWhiteSpace(item.Sign))
+                {
+                    useGetMulDetailFirstFunc = false;
+                    checkMulDetailErrorRowColIndex = (i, j);
+                    isSignNull = true;
+                    //string msg = $"チェック番号 : {gachCommonHeader.CheckNum}の定義詳細番号 : {i + 1}に符号";
+                    string msg = $"No.   {i + 1} 項目間チェック条件の列番{j + 1}に符号";
+                    SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", msg));
+                    await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                    StateHasChanged();
+                    return;
+                }
+            }
+        }
+        checkMulDetailErrorRowColIndex = (-1, -1);
+
+        foreach (var info1 in ViewModel.ReplaceTargetItemList)
+        {
+            if (info1.ReplaceTargetNum == 0 || (info1.ReplaceTargetItemID == 1 && info1.IsChecked == false))
+            {
+                SetErrorMessage(GaCommon.Resources.MessageResource.MOECM219.Replace("{0}", "変換対象条件項目"));
+                await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+                return;
+            }
+        }
+
+
+        //setSessionData()
+        //下記のように、チェック定義情報を新規インスタンス化
+        GACHCheckDefinitionInfo newGACHCheckDefinitionInfo = new GACHCheckDefinitionInfo();
+        newGACHCheckDefinitionInfo.CheckSummary = ViewModel.CheckSummary;
+        newGACHCheckDefinitionInfo.CheckType = 1;
+
+        //セッション情報.チェックツールセッション情報.チェック定義編集区分 = 1(コピーして追加)の場合
+        //GACH業務改修20240425
+        //if (gachCommonHeader.CheckMode == "1")
+        if (gachCommonHeader.CopyCheckNum != 0)
+        {
+            int maxNo = gACHDefinition.CheckDefinitionInfoList.Max(s => s.CheckNum);
+            newGACHCheckDefinitionInfo.CheckNum = maxNo + 1;
+        }
+        else
+        {
+            newGACHCheckDefinitionInfo.CheckNum = session.GACHCommonHeader.CheckNum;
+        }
+
+        newGACHCheckDefinitionInfo.CheckTargetConditionItemList = new List<GACHConditionItem>();
+        newGACHCheckDefinitionInfo.CheckTargetConditionItemList.Add(new GACHConditionItem
+            {   //　チェック対象条件番号: 1
+                ConditionNum = 1,
+                ConditionItemID = ViewModel.CheckTargetConditionItemList[0].ConditionItemID
+            });
+
+        //1-3-2.項目間チェック条件項目リスト設定
+        var tmpList = ViewModel.MultipleCheckConditionItemList.Where(p => p.ConditionItemID != 0); //空列を削除
+        newGACHCheckDefinitionInfo.MultipleCheckConditionItemList = tmpList.Select(p => new GACHConditionItem
+            {
+                // 項目間チェック対象条件番号
+                ConditionNum = p.ConditionNum,
+                ConditionItemID = p.ConditionItemID
+
+            }).ToList();
+
+        int colidx = 0; //※条件列のループ数
+        foreach (var mulitem in newGACHCheckDefinitionInfo.MultipleCheckConditionItemList)
+        {
+            colidx++; //列のループ数
+            mulitem.ConditionNum = colidx;
+        }
+
+        //1-3-3.変換対象項目リスト設定
+        newGACHCheckDefinitionInfo.ReplaceTargetItemList = new List<GACHReplaceTargetItem>();
+        if (ViewModel.ReplaceTargetItemList[0].ReplaceTargetItemID != 0)
+        { //　変換対象項目ID を選ばれたの場合
+
+            newGACHCheckDefinitionInfo.ReplaceTargetItemList.Add(new GACHReplaceTargetItem
+                {   //　変換対象番号 : 1
+                    ReplaceTargetNum = 1,
+                    ReplaceTargetItemID = ViewModel.ReplaceTargetItemList[0].ReplaceTargetItemID
+                });
+        }
+
+        //1-3-4.定義情報詳細リスト設定
+        newGACHCheckDefinitionInfo.CheckInfoDetailList = new List<GACHCheckInfoDetail>();
+        //1-3-4-1. 初期設定
+        foreach (var detailItem in ViewModel.Details)
+        {
+            GACHCheckInfoDetail detailNew = new GACHCheckInfoDetail();
+            detailNew.DefinitionDetailsNum = detailItem.DefinitionDetailsNum;
+            detailNew.CheckTargetConditionItemList = new List<GACHTargetCondition>();
+            detailNew.CheckTargetConditionItemList.Add(new GACHTargetCondition
+                {
+                    ConditionNum = 1,
+                    ComparisonCondition = detailItem.CheckTargetConditionItemList[0].ComparisonCondition,
+                    Sign = detailItem.CheckTargetConditionItemList[0].Sign
+                });
+
+
+            detailNew.ReplaceStringList = new List<GACHReplaceString>();
+            //if (ViewModel.ReplaceTargetItemList[0].ReplaceTargetItemID != 0)
+            if (detailItem.ReplaceStringList.Count != 0 && (!string.IsNullOrEmpty(detailItem.ReplaceStringList[0].ReplaceString))) //文字列入力した
+            {
+                detailNew.ReplaceStringList.Add(new GACHReplaceString
+                    {
+                        ReplaceTargetNum = 1, //detailItem.ReplaceStringList[0].ReplaceTargetNum
+                        Type = 1,
+                        ReplaceString = detailItem.ReplaceStringList[0].ReplaceString
+                    });
+            }
+
+            detailNew.ErrFlg = detailItem.ErrFlg;
+
+            //1-3-4-2. 項目間チェック条件リストの設定
+            detailNew.ItemCheckTargetConditionList = new List<GACHTargetCondition>();
+            colidx = 0;
+            foreach (var detailItem1 in detailItem.MultipleCheckConditionItemList)
+            {
+                colidx++; //列のループ数
+                if (detailItem1.ComparisonCondition != null || (detailItem1.Sign != "" && detailItem1.Sign != null))
+                {
+                    detailNew.ItemCheckTargetConditionList.Add(new GACHTargetCondition
+                        {
+                            ConditionNum = colidx,
+                            ComparisonCondition = detailItem1.ComparisonCondition,
+                            Sign = detailItem1.Sign
+                        });
+                }
+
+            }
+            newGACHCheckDefinitionInfo.CheckInfoDetailList.Add(detailNew);
+
+        }
+
+        //2. 入力チェック処理
+        bool re = CheckRegister(newGACHCheckDefinitionInfo);
+        if (re)
+        {
+            if (ErrorMessageList.Count > 0)
+            {
+                foreach (var errmsg in ErrorMessageList)
+                {
+
+                    await JSRuntime.InvokeVoidAsync("updateErrMessage", errmsg);
+                }
+                return;
+
+            }
+
+        }
+
+        //3.セッション情報更新
+        //セッション情報.チェックツールセッション情報.定義情報.チェック定義情報リストがNULLの場合
+        if (gACHDefinition.CheckDefinitionInfoList == null)
+        {
+            gACHDefinition.CheckDefinitionInfoList = new List<GACHCheckDefinitionInfo>();
+        }
+
+        //リストに設定する　無しの場合、追加
+        Int32 idxCheckDef = gACHDefinition.CheckDefinitionInfoList.FindIndex(t => t.CheckNum == newGACHCheckDefinitionInfo.CheckNum);
+        if (idxCheckDef >= 0)
+        {
+            gACHDefinition.CheckDefinitionInfoList[idxCheckDef] = newGACHCheckDefinitionInfo;
+        }
+        else
+        {
+            gACHDefinition.CheckDefinitionInfoList.Add(newGACHCheckDefinitionInfo);
+        }
+
+        // チェックツールのDB更新 ※共通の呼び出す
+        int iCode = gACH0020XXRegisterServices.UpdateExecutionResultsStart(session.GACHCommonHeader, gACHDefinition, userInfo);
+        if (iCode == -1)
+        {
+            //-1:トランザクション使う中の場合、以下のエラーメッセージを表示して処理を終了する。
+            SetErrorMessage(GaCommon.Resources.MessageResource.MOICM005);
+            await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+            return;
+        }
+        if (iCode == -2)
+        {
+            //-2:エラー発生の場合、以下のエラーメッセージを表示して処理を終了する。
+            SetErrorMessage(GaCommon.Resources.MessageResource.MOECM229);
+            await JSRuntime.InvokeVoidAsync("updateErrMessage", ErrorMessage);
+            return;
+        }
+
+        //セッション情報.定義情報リストの更新
+        var data1 = defInfoList.FirstOrDefault(t => t.CheckNum == newGACHCheckDefinitionInfo.CheckNum);
+        if (data1 == null)
+        {
+            data1 = new GACHDefinitionInfoList();
+            data1.CheckNum = newGACHCheckDefinitionInfo.CheckNum;
+            defInfoList.Add(data1);
+        }
+        data1.IsDetailExistFlag = true;
+        data1.CheckType = 1;
+        data1.CheckSummary = newGACHCheckDefinitionInfo.CheckSummary;
+
+        //2-4.セッション情報.定義情報リストの該当データの詳細無しフラグを訂正する
+        session.DefinitionInfoList = defInfoList;
+        session.GACHCommonHeader.IsEditFlag = true;
+        session.GACHCommonHeader.Mode = "2"; //編集
+        JSRuntime.InvokeVoidAsync("hideMessage");
+
+        var tmp = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(CommonJsonUtil.Serialize(session)));
+        await SessionStorage.SetItemGACH("CommonSession", tmp);
+        NavigationManager.NavigateTo($"{BASE_PATH}/GACH002010?mode=2&&definitionId={session.GACHCommonHeader.definitionId}&&IsReload=false&&SelStatName={session.GACHCommonHeader.GovernmentStatisticsName}");
+
+    }
+
+    private void CheckBoxOnchange(GACH20ConditionItem e)
+    {
+        //手動でチェックボックスの状態を更新
+        e.IsChecked = !e.IsChecked;
+        if (e.IsChecked)
+        {
+            gACH20ConditionItemSelects.Add(e);
+        }
+        else
+        {
+            gACH20ConditionItemSelects.Remove(e);
+        }
+        BtnStateChange();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// エラーメッセージを表示
+    /// </summary>
+    /// <param name="msgID">メッセージID</param>
+    /// <param name="args">初期化</param>
+    /// <returns>エラーメッセージ</returns>
+    public void SetErrorMessage(string msgID, params object[] args)
+    {
+        ErrorMessage = string.Format(msgID, args);
+    }
+
+    /// <summary>
+    /// エラーメッセージリスト
+    /// </summary>
+    /// <param name="msg">エラーメッセージ</param>
+    public void AddErrorMessages(string msg)
+    {
+        ErrorMessageList.Add(msg);
+    }
+
+
+    //チェック定義情報入力チェック処理
+    private bool CheckRegister(GACHCheckDefinitionInfo checkDef)
+    {
+        //チェック結果
+        bool IsError = false;
+
+        //1-1-4.
+        //チェック定義情報.チェック対象条件項目リストの件数によって繰り返して、以下の処理をする。
+        if (checkDef.CheckTargetConditionItemList != null && checkDef.CheckTargetConditionItemList.Count > 0)
+        {
+            for (int i = 0; i < checkDef.CheckTargetConditionItemList.Count(); i++)
+            {
+                //4)-1.
+                //チェック定義情報.チェック対象条件項目リスト[i].チェック対象条件項目IDが"NULL"あるいは、"空白"の場合、エラーリストに追加する。
+                if (string.IsNullOrEmpty(checkDef.CheckTargetConditionItemList[i].ConditionItemID.ToString()))
+                {
+                    IsError = true;
+                    //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH002.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", "チェック対象条件番号" + checkDef.CheckTargetConditionItemList[i].ConditionNum).Replace("{2}", "チェック対象条件項目"));
+                    ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH002.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", "チェック対象条件番号" + checkDef.CheckTargetConditionItemList[i].ConditionNum).Replace("{2}", "チェック対象条件項目"));
+                    //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH002);
+                    //await ShowMessageHide(5);
+                    //return;
+                }
+            }
+        }
+
+        //1-1-7.
+        //チェック定義情報.変換対象項目リストが"NULL"以外の場合、チェック定義情報.変換対象項目リストの件数によって繰り返して、以下のチェック処理をする。
+        if (checkDef.ReplaceTargetItemList != null && checkDef.ReplaceTargetItemList.Count > 0)
+        {
+            for (int j = 0; j < checkDef.ReplaceTargetItemList.Count(); j++)
+            {
+                //7)-1.
+                //チェック定義情報.変換対象項目リスト[j].に変換文字列が”NULL”以外で
+                //チェック定義情報.変換対象項目リスト[j].変換対象項目IDが"NULL"の場合
+                if (!string.IsNullOrEmpty(checkDef.ReplaceTargetItemList[j].ReplaceTargetNum.ToString()) && string.IsNullOrEmpty(checkDef.ReplaceTargetItemList[j].ReplaceTargetItemID.ToString()))
+                {
+                    IsError = true;
+                    //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", "変換対象番号" + checkDef.ReplaceTargetItemList[j].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+                    ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", "変換対象番号" + checkDef.ReplaceTargetItemList[j].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+                    //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH001);
+                    //await ShowMessageHide(5);
+                    //return;
+                }
+            }
+        }
+
+        //1-2.
+        //定義情報詳細データ入力チェック処理
+        //チェック定義情報.定義情報詳細リストが"NULL"以外の場合、チェック定義情報.定義情報詳細リストの件数によって繰り返して、以下のチェック処理をする。
+        if (checkDef.CheckInfoDetailList != null && checkDef.CheckInfoDetailList.Count > 0)
+        {
+            for (int i = 0; i < checkDef.CheckInfoDetailList.Count(); i++)
+            {
+                //1-2-1.
+                //チェック定義情報.定義情報詳細リスト[i].チェック対象条件リストによって繰り返して、以下の処理をする。
+                for (int j = 0; j < checkDef.CheckInfoDetailList[i].CheckTargetConditionItemList.Count(); j++)
+                {
+                    //1-2-1-1.
+                    //チェック定義情報.チェック種別が"1"「通常」の場合
+                    if (CheckType_Temp.Equals("1"))
+                    {
+                        //1).
+                        //チェック対象の比較条件と符号の入力チェック
+                        if (j == 0)
+                        {
+                            //1)-1.
+                            //比較条件が"NULL"あるいは、"空白"の場合
+                            if (checkDef.CheckInfoDetailList[i].CheckTargetConditionItemList[j].ComparisonCondition is null)
+                            {
+                                IsError = true;
+                                //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH003.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", checkDef.CheckInfoDetailList[i].DefinitionDetailsNum.ToString()).Replace("{2}", "比較条件"));
+                                ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH003.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", checkDef.CheckInfoDetailList[i].DefinitionDetailsNum.ToString()).Replace("{2}", "比較条件"));
+                                //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH003);
+                                //await ShowMessageHide(5);
+                                //return;
+                            }
+                            //1)-2.
+                            //符号が"NULL"あるいは、"空白"の場合
+                            else if (string.IsNullOrEmpty(checkDef.CheckInfoDetailList[i].CheckTargetConditionItemList[j].Sign))
+                            {
+                                IsError = true;
+                                //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH003.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", checkDef.CheckInfoDetailList[i].DefinitionDetailsNum.ToString()).Replace("{2}", "符号"));
+                                ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH003.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", checkDef.CheckInfoDetailList[i].DefinitionDetailsNum.ToString()).Replace("{2}", "符号"));
+                                //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH003);
+                                //await ShowMessageHide(5);
+                                //return;
+                            }
+                        }
+                    }
+
+                }
+
+                //チェック定義情報.定義情報詳細リスト[i].変換対象項目リストの件数によって繰り返して、以下のチェック処理をする。
+                //変換対象項目リスト⇒⇒⇒⇒⇒⇒変換文字列リスト？？？？？
+                for (int p = 0; p < checkDef.CheckInfoDetailList[i].ReplaceStringList.Count; p++)
+                {
+                    //変換文字列リスト※一時保存用
+                    List<int> ReplaceStringList_Temp = new List<int>();
+
+                    //8).
+                    //変換対象項目と符号の整合性チェック
+                    //チェック定義情報.定義情報詳細リスト[i].変換文字列リストから以下の変換対象番号でリスト取得する。
+                    foreach (var item in checkDef.CheckInfoDetailList[i].ReplaceStringList)
+                    {
+                        ReplaceStringList_Temp.Add(item.ReplaceTargetNum);
+                    }
+
+                    //8)-1. チェック定義情報.変換対象項目リスト[j].変換対象項目IDが”NULL”の場合、エラーリストに以下のエラーメッセージを追加する。
+                    if (checkDef.ReplaceTargetItemList != null && checkDef.ReplaceTargetItemList.Count > 0)
+                    {
+                        for (int j = 0; j < checkDef.ReplaceTargetItemList.Count(); j++)
+                        {
+                            //チェック定義情報.変換対象項目リスト[j].変換対象項目IDが"NULL"の場合
+                            if (!string.IsNullOrEmpty(checkDef.ReplaceTargetItemList[j].ReplaceTargetNum.ToString()) && string.IsNullOrEmpty(checkDef.ReplaceTargetItemList[j].ReplaceTargetItemID.ToString()))
+                            {
+                                IsError = true;
+                                //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", "変換対象番号" + checkDef.ReplaceTargetItemList[j].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+                                ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", "変換対象番号" + checkDef.CheckInfoDetailList[i].ReplaceStringList[j].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+                                //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH001);
+                                //await ShowMessageHide(5);
+                                //return;
+                            }
+                        }
+                    }
+
+                    //変換対象が未入力 REPLACE_TARGET_ITEM_LIST:[] の場合
+                    if (checkDef.ReplaceTargetItemList != null && checkDef.ReplaceTargetItemList.Count == 0)
+                    {
+                        IsError = true;
+                        //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", "変換対象番号" + checkDef.ReplaceTargetItemList[j].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+                        ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH001.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", "変換対象番号" + checkDef.CheckInfoDetailList[i].ReplaceStringList[0].ReplaceTargetNum).Replace("{2}", "変換対象項目"));
+
+                    }
+
+                    //8)-2.
+                    //変換文字列リストが"NULL"、あるいは、変換文字列リストの件数が"0"件の場合、（※全データが未入力)
+                    if (ReplaceStringList_Temp is null || ReplaceStringList_Temp.Count == 0)
+                    {
+                        IsError = true;
+                        //SetErrorMessage(GaCommon.Resources.MessageResource.MOECH013.Replace("{0}", "チェック定義情報.チェック番号").Replace("{1}", "変換対象番号: " + checkDef.CheckInfoDetailList[i].ReplaceStringList[p].ReplaceTargetNum).Replace("{2}", "変換文字列"));
+                        ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH013.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", "変換対象番号: " + checkDef.CheckInfoDetailList[i].ReplaceStringList[p].ReplaceTargetNum).Replace("{2}", "変換文字列"));
+                        //AddErrorMessages(GaCommon.Resources.MessageResource.MOECH013);
+                        //await ShowMessageHide(5);
+                        //return;
+                    }
+
+                }
+            }
+        }
+
+        //9). 変換対象の種類と変換文字列の整合性チェック
+        //if (!string.IsNullOrEmpty(checkDef.ReplaceTargetItemList[0].ReplaceTargetItemID.ToString()))
+        if (checkDef.ReplaceTargetItemList.Count != 0) //  変換対象項目ID を選ばれたの場合
+        {
+            //9)-1-1.
+            //変換文字列リスト[j].種類が”NULL”以外で
+            //変換文字列リスト[j].変換文字列が"NULL"の場合
+            for (int p = 0; p < checkDef.CheckInfoDetailList.Count; p++)
+            {
+                //if (string.IsNullOrEmpty(checkDef.CheckInfoDetailList[p].ReplaceStringList[0].ReplaceString))
+                // if (checkDef.CheckInfoDetailList[p].ReplaceStringList.Count == 0) //変換文字列が"NULL"
+                // {
+                //     IsError = true;
+                //     ErrorMessageList.Add(GaCommon.Resources.MessageResource.MOECH004.Replace("{0}", gachCommonHeader.CheckNum.ToString()).Replace("{1}", checkDef.CheckInfoDetailList[p].DefinitionDetailsNum.ToString()).Replace("{2}", "変換対象番号 : " + 1).Replace("{3}", "変換文字列"));
+
+                //     break;
+                // }
+            }
+        }
+
+        return IsError;
+    }
+
+    //ボタン状態制御
+    private void BtnStateChange()
+    {
+        if (this.ViewModel.Details.Count == 0)
+        {
+            this.IsDisabledSetting = this.IsDisabledRowSelected = this.IsDisabledRowDelete = true;
+        }
+        else
+        {
+            this.IsDisabledSetting = this.IsDisabledRowSelected = this.IsDisabledRowDelete = false;
+        }
+
+        bool hasChecked = ViewModel.MultipleCheckConditionItemList.Any(x => x.IsChecked);
+
+        if (hasChecked)
+        {
+            this.IsDisabledColAdd = false;
+            if (hasChecked && ViewModel.MultipleCheckConditionItemList.Count >= 1)
+            {
+                this.IsDisabledColDelete = false;
+            }
+            else
+            {
+                this.IsDisabledColDelete = true;
+            }
+        }
+        else
+        {
+            this.IsDisabledColDelete = true;
+        }
+    }
+
+    //定義情報詳細のテーブルヘッダのチェック対象条件項目を変更
+    private async void CheckTargetConditionChanged(ChangeEventArgs e, GACH20ConditionItem item)
+    {
+        item.ConditionItemID = int.Parse(e.Value.ToString());
+
+        if (item.PreviousValue == 0)
+        { //初期化の場合
+            item.PreviousValue = item.ConditionItemID;
+            return;
+        }
+
+        var ret = await JSRuntime.InvokeAsync<bool>("window.confirm", GaCommon.Resources.MessageResource.MOCCH005.Replace("{0}", "該当する列の比較条件と符号"));
+        if (!ret)
+        {
+            //cancel の場合
+            item.ConditionItemID = item.PreviousValue;
+            StateHasChanged();
+            return;
+        }
+
+        item.PreviousValue = item.ConditionItemID;
+        ViewModel.Details.ForEach(detail =>
+        {
+            detail.CheckTargetConditionItemList.ForEach(citem =>
+            {
+                citem.ComparisonCondition = null;
+                citem.Sign = "";
+            });
+        });
+
+        //4-3. 定義内容入力の該当する列のデータをクリアする。
+        if (EditRow != null)
+        {
+            SelectRow();
+        }
+
+        StateHasChanged();
+    }
+
+    //5.定義情報詳細のテーブルヘッダの項目間チェック条件項目を変更した場合
+    private async void MultipleCheckConditionChanged(ChangeEventArgs e, GACH20ConditionItem item)
+    {
+        item.ConditionItemID = int.Parse(e.Value.ToString());
+        //列追加　初期化の場合
+        if (item.PreviousValue == 0)
+        {
+            item.PreviousValue = item.ConditionItemID;
+            return;
+        }
+        var ret = await JSRuntime.InvokeAsync<bool>("window.confirm", GaCommon.Resources.MessageResource.MOCCH005.Replace("{0}", "該当する列の比較条件と符号"));
+        if (!ret)
+        {
+            //cancel の場合
+            item.ConditionItemID = item.PreviousValue;
+            StateHasChanged();
+            return;
+        }
+
+        item.PreviousValue = item.ConditionItemID;
+
+        ViewModel.Details.ForEach(detail =>
+        {
+            var selCol = detail.MultipleCheckConditionItemList
+            .FirstOrDefault(i => i.ConditionNum == item.ConditionNum);
+            if (selCol != null)
+            {
+                selCol.ComparisonCondition = null;
+                selCol.Sign = "";
+            }
+
+        });
+
+        //4-3. 定義内容入力の該当する列のデータをクリアする。
+        if (EditRow != null)
+        {
+            SelectRow();
+        }
+
+        StateHasChanged();
+
+    }
+
+    private string GetInputCssClass()
+    {
+        return checkSummaryhasError ? "input-validation-error" : string.Empty;
+    }
+
+    private string GetSelectCssClass(int index)
+    {
+        return index == errorIndex ? "input-validation-error" : string.Empty;
+    }
+
+    //チェック対象
+    private string GetCheckSelectCssClass(int rowIndex, bool isNull)
+    {
+        return rowIndex == checkDetailErrorRowIndex && isNull ? "input-validation-error" : string.Empty;
+    }
+    //項目間
+    private string GetMulHeaderSelectCssClass(int colIndex)
+    {
+        return colIndex == checkMulHeaderErrorIndex ? "input-validation-error" : string.Empty;
+    }
+
+    private string GetMulSelectDetailColCssClass(int colIndex)
+    {
+        return colIndex == checkMulDetailColErrorIndex ? "input-validation-error" : string.Empty;
+    }
+
+    private string GetMulSelectDetailRowColCssClass(int rowIndex, int colIndex, bool isNull)
+    {       
+        return ((rowIndex, colIndex) == checkMulDetailErrorRowColIndex) && isNull ? "input-validation-error" : string.Empty;
+    }
+
+    bool useGetMulDetailFirstFunc;
+    private string GetMulDetailSelectCssClass(int rowIndex, int colIndex, bool isNull)
+    {
+        return useGetMulDetailFirstFunc ? GetMulSelectDetailColCssClass(colIndex) : GetMulSelectDetailRowColCssClass(rowIndex, colIndex, isNull);
+    }
+
+    private void CheckRedFlagInit()
+    {
+        checkSummaryhasError = false;
+        checkDetailErrorRowIndex = -1;
+        
+        checkMulDetailColErrorIndex = -1;
+        checkMulHeaderErrorIndex = -1;
+        
+        checkMulDetailErrorRowColIndex = (-1, -1);
+        isConditionNull = false;
+        isSignNull = false;
+        isCheckConditionNull = false;
+        isCheckSignNull = false;
+    }
+}
